@@ -1,0 +1,77 @@
+name: Daily ranking + web app
+
+# Refreshes the ranking with FREE data sources and republishes the web app to GitHub Pages (free):
+#  - every hour while Wall Street is open (covers both summer and winter time)
+#  - once more after the close, so the evening ranking uses final closing prices
+on:
+  schedule:
+    - cron: '15 14-21 * * 1-5'  # hourly 14:15–21:15 UTC, Mon–Fri (US market hours)
+    - cron: '45 21 * * 1-5'     # after the close
+  workflow_dispatch: {}        # "Run workflow" button for manual runs
+  push:
+    branches: [main]
+    paths: ['app/**', 'engine/**', '.github/workflows/**']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency: { group: daily-ranking, cancel-in-progress: false }
+
+env:
+  SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      # ---------- 1. Ranking engine ----------
+      - run: npm install
+        working-directory: engine
+      - name: Fetch yesterday's report (for rank changes)
+        working-directory: engine
+        run: |
+          mkdir -p out
+          curl -fsSL "$SITE_URL/data/daily.json" -o out/daily.json || rm -f out/daily.json
+          curl -fsSL "$SITE_URL/data/prev.json" -o out/prev.json || rm -f out/prev.json
+      - name: Build the ranking (free: Yahoo Finance + Google News, no keys)
+        id: engine
+        continue-on-error: true
+        working-directory: engine
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # optional, better sentiment
+        run: npm run daily
+
+      # ---------- 2. Web app ----------
+      - run: npm install
+        working-directory: app
+      - name: Export web app
+        working-directory: app
+        env:
+          EXPO_BASE_URL: /${{ github.event.repository.name }}
+          EXPO_PUBLIC_DATA_URL: ${{ env.SITE_URL }}/data/daily.json
+        run: npx expo export --platform web
+
+      # ---------- 3. Publish ----------
+      - name: Assemble site
+        run: |
+          mkdir -p site/data
+          cp -r app/dist/. site/
+          cp site/index.html site/404.html          # deep links work on GitHub Pages
+          [ -f engine/out/daily.json ] && cp -r engine/out/. site/data/ || echo "no new data"
+          # Web-app paths live under /<repo-name> on GitHub Pages
+          BASE="/${{ github.event.repository.name }}"
+          for f in site/index.html site/404.html site/manifest.json site/sw.js; do sed -i "s#__BASE__#$BASE#g" "$f"; done
+          touch site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+      - id: deploy
+        uses: actions/deploy-pages@v4
