@@ -41,7 +41,7 @@ jobs:
           mkdir -p out
           curl -fsSL "$SITE_URL/data/daily.json" -o out/daily.json || rm -f out/daily.json
           curl -fsSL "$SITE_URL/data/prev.json" -o out/prev.json || rm -f out/prev.json
-      - name: Build the ranking (free: Yahoo Finance + Google News, no keys)
+      - name: 'Build the ranking (free - Yahoo Finance + Google News, no keys)'
         id: engine
         continue-on-error: true
         working-directory: engine
