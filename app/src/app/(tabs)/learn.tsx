@@ -64,7 +64,7 @@ const GLOSSARY: [L, L][] = [
 
 const TEXT = {
   title: L('איך מחושב הציון', 'How the score works'),
-  intro: L('כל מניה מקבלת ציון 1–100 שמורכב משלושה שלישים שווים. הדירוג מתעדכן כל שעה בזמן המסחר בוול סטריט ופעם נוספת אחרי הסגירה.', 'Every stock gets a 1–100 score made of three equal thirds. The ranking refreshes hourly while Wall Street is open and once more after the close.'),
+  intro: L('כל מניה מקבלת ציון 1–100 שמורכב משלושה שלישים שווים. הדירוג מתעדכן כל 20 דקות בזמן המסחר בוול סטריט ופעם נוספת אחרי הסגירה.', 'Every stock gets a 1–100 score made of three equal thirds. The ranking refreshes every 20 minutes while Wall Street is open and once more after the close.'),
   levelsT: L('יעד יציאה וסטופ', 'Exit target & stop'),
   levels: L('הסטופ ממוקם 2×ATR מתחת למחיר, או מתחת לממוצע 100 אם הוא קרוב יותר. היעד הוא ההתנגדות הקרובה (שיא 60 יום / 52 שבועות) אם היא נותנת לפחות פי 1.5 מהסיכון, אחרת יעד של פי 2 מהסיכון. אלו רמות טכניות לצורכי מחקר — לא תחזית מחיר.', 'The stop sits 2×ATR below the price, or just under the 100-day MA if that is closer. The target is the nearest resistance (60-day / 52-week high) if it offers at least 1.5× the risk, otherwise 2× the risk. These are technical research levels — not a price forecast.'),
   glossT: L('מילון מונחים', 'Glossary'),

@@ -8,7 +8,7 @@
  *  - parseFinnhubMetrics is kept for an optional Finnhub integration.
  */
 import type { Candle, CompanyProfile, Fundamentals, NewsItem, StockInput } from '../types.js';
-import { isAboutCompany, loadYahooStock, yahooNodeSession } from './yahoo.js';
+import { isAboutCompany, loadYahooCharts, loadYahooStock, yahooNodeSession } from './yahoo.js';
 import { fetchGoogleNews, mergeNews } from './googlenews.js';
 
 const UNIVERSE_CSV = 'https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv';
@@ -129,6 +129,7 @@ export async function loadFreeInputs(opts: { asOf: Date; limit?: number; concurr
       const u = universe[idx++];
       try {
         const input = await loadYahooStock(get, u, crumb, opts.asOf, (m) => log(m));
+        input.charts = await loadYahooCharts(get, u.symbol);
         try {
           const gn = (await fetchGoogleNews(u.name)).filter((n) => isAboutCompany(n.headline, u.symbol, u.name));
           input.news = mergeNews(input.news, gn);

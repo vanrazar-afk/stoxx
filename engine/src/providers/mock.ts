@@ -166,7 +166,27 @@ export function mockUniverse(asOf = new Date(), seed = 42): StockInput[] {
       });
     }
     const pe = r() < 0.08 ? -5 : 8 + r() * 45;
+    // Synthetic range-chart series (demo only)
+    const last = candles.at(-1)!;
+    const endTs = Math.floor(new Date(`${last.date}T21:00:00Z`).getTime() / 1000);
+    const intraday: [number, number][] = [];
+    let p = candles.at(-6)!.close;
+    for (let d = 4; d >= 0; d--) {
+      const dayClose = candles.at(-1 - d)!.close;
+      for (let k = 0; k < 26; k++) {
+        p += (dayClose - p) / (26 - k) + (r() - 0.5) * vol * p * 0.3;
+        intraday.push([endTs - d * 86400 - (25 - k) * 900 - 6.5 * 3600 + 23400, +p.toFixed(2)]);
+      }
+    }
+    const weekly: [number, number][] = [];
+    let w = last.close / (1 + drift * 1260 + 0.0001);
+    for (let k = 259; k >= 0; k--) {
+      w *= 1 + drift * 5 + vol * 2 * (r() - 0.5);
+      weekly.push([endTs - k * 7 * 86400, +Math.max(1, w).toFixed(2)]);
+    }
+    weekly[weekly.length - 1][1] = last.close;
     return {
+      charts: { intraday, weekly },
       profile: { symbol, name, sector, industry, exchange: 'NASDAQ' },
       candles,
       fundamentals: {

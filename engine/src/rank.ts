@@ -102,7 +102,7 @@ export async function buildReport(
   }));
 
   const quotes: DailyReport['quotes'] = {};
-  for (const s of scored) quotes[s.symbol] = { price: s.price, changePct: s.changePct, name: s.name };
+  for (const s of scored) quotes[s.symbol] = { price: s.price, changePct: s.changePct, name: s.name, sector: s.sector };
 
   const lastDate = inputs.find((x) => x.candles.length)?.candles.at(-1)?.date ?? opts.asOf.toISOString().slice(0, 10);
   return {

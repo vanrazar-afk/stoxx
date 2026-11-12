@@ -11,8 +11,19 @@ export interface Lot {
   date: string; // YYYY-MM-DD
 }
 
+export interface Account {
+  mode: 'guest' | 'google';
+  uid?: string;
+  name?: string | null;
+  email?: string | null;
+  photo?: string | null;
+}
+
 interface AppState {
   disclaimerAcceptedAt: string | null;
+  account: Account | null;
+  setAccount: (a: Account | null) => void;
+  replaceData: (d: { lots: Lot[]; watchlist: string[] }) => void;
   lots: Lot[];
   watchlist: string[];
   acceptDisclaimer: () => void;
@@ -23,13 +34,16 @@ interface AppState {
 }
 
 /**
- * All user data lives ON THE DEVICE only (no account, no server).
- * This keeps the privacy footprint minimal for App Store / Play "Data safety" forms.
+ * Guest mode: all user data lives ON THE DEVICE only.
+ * Google mode: the same data is also synced to the user's own Firestore document (see auth.tsx).
  */
 export const useApp = create<AppState>()(
   persist(
     (set) => ({
       disclaimerAcceptedAt: null,
+      account: null,
+      setAccount: (account) => set({ account }),
+      replaceData: ({ lots, watchlist }) => set({ lots, watchlist }),
       lots: [],
       watchlist: [],
       acceptDisclaimer: () => set({ disclaimerAcceptedAt: new Date().toISOString() }),
@@ -40,8 +54,8 @@ export const useApp = create<AppState>()(
         set((s) => ({
           watchlist: s.watchlist.includes(symbol) ? s.watchlist.filter((x) => x !== symbol) : [...s.watchlist, symbol],
         })),
-      resetAll: () => set({ lots: [], watchlist: [], disclaimerAcceptedAt: null }),
+      resetAll: () => set({ lots: [], watchlist: [], disclaimerAcceptedAt: null, account: null }),
     }),
-    { name: 'stoxx-user', storage: createJSONStorage(() => AsyncStorage), version: 1 },
+    { name: 'stoxx-user', storage: createJSONStorage(() => AsyncStorage), version: 2, migrate: (s: any) => ({ account: null, ...s }) },
   ),
 );

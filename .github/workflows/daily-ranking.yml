@@ -1,12 +1,13 @@
 name: Daily ranking + web app
 
 # Refreshes the ranking with FREE data sources and republishes the web app to GitHub Pages (free):
-#  - every hour while Wall Street is open (covers both summer and winter time)
-#  - once more after the close, so the evening ranking uses final closing prices
+#  - every 20 minutes while Wall Street is open, 13:00–21:40 UTC Mon–Fri
+#    (covers the 9:30–16:00 New York session in both summer and winter time,
+#     and the last runs after the close lock in the closing prices)
+#  GitHub may start scheduled runs a few minutes late when its servers are busy.
 on:
   schedule:
-    - cron: '15 14-21 * * 1-5'  # hourly 14:15–21:15 UTC, Mon–Fri (US market hours)
-    - cron: '45 21 * * 1-5'     # after the close
+    - cron: '*/20 13-21 * * 1-5'
   workflow_dispatch: {}        # "Run workflow" button for manual runs
   push:
     branches: [main]

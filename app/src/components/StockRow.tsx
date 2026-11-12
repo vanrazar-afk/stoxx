@@ -74,4 +74,39 @@ export function StockRow({ s }: { s: StockScore }) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
   rank: { width: 26, alignItems: 'center', gap: 2 },
+  noScore: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
 });
+
+/** A stock outside today's top 50: price and day change only, marked "no score". */
+export function UnscoredRow({ symbol, name, sector, price, changePct }: { symbol: string; name: string; sector?: string; price: number; changePct: number }) {
+  const t = useT();
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/stock/[symbol]', params: { symbol } })}
+      style={({ pressed }) => [styles.row, { paddingVertical: 10 }, pressed && { backgroundColor: colors.cardHi }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, ${t('no_score')}, ${usd(price)}`}
+    >
+      <View style={styles.noScore}>
+        <T size={10} w="bold" color={colors.textDim} style={{ textAlign: 'center' }}>
+          {t('no_score')}
+        </T>
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <N w="bold" size={15}>
+          {symbol}
+        </N>
+        <T size={12} color={colors.textDim} numberOfLines={1}>
+          {name}
+          {sector ? ` · ${sectorName(sector, t.lang)}` : ''}
+        </T>
+      </View>
+      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+        <N w="bold" size={14}>
+          {usd(price)}
+        </N>
+        <Delta value={changePct} size={11} />
+      </View>
+    </Pressable>
+  );
+}

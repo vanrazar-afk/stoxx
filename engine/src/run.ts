@@ -10,7 +10,7 @@ import { mockUniverse } from './providers/mock.js';
 import { loadStock, loadUniverse, limiter } from './providers/live.js';
 import { loadFreeInputs } from './providers/free.js';
 import { claudeClassifier, lexiconClassifier } from './scoring/sentiment.js';
-import type { DailyReport, NewsItem, StockInput } from './types.js';
+import type { ChartFile, DailyReport, NewsItem, StockInput } from './types.js';
 import { mergeNews } from './providers/googlenews.js';
 import { isAboutCompany } from './providers/yahoo.js';
 
@@ -82,6 +82,22 @@ async function main() {
   if (previous) await writeFile(`${outDir}/prev.json`, JSON.stringify(previous));
   await writeFile(`${outDir}/daily.json`, json);
   await writeFile(`${outDir}/history/${report.asOf}.json`, json);
+  // One chart file per stock (price-range chart in the app)
+  await mkdir(`${outDir}/charts`, { recursive: true });
+  let charts = 0;
+  for (const s of inputs) {
+    if (!s.candles.length) continue;
+    const file: ChartFile = {
+      symbol: s.profile.symbol,
+      updatedAt: report.generatedAt,
+      intraday: s.charts?.intraday ?? [],
+      daily: s.candles.slice(-260).map((c) => [Math.floor(new Date(`${c.date}T21:00:00Z`).getTime() / 1000), Math.round(c.close * 100) / 100]),
+      weekly: s.charts?.weekly ?? [],
+    };
+    await writeFile(`${outDir}/charts/${s.profile.symbol}.json`, JSON.stringify(file));
+    charts++;
+  }
+  console.log(`charts written: ${charts}`);
   console.log(`Top ${report.top.length} of ${report.universeSize} written. #1 ${report.top[0]?.symbol} (${report.top[0]?.score})`);
 }
 

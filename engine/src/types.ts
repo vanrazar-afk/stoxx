@@ -41,11 +41,28 @@ export interface CompanyProfile {
   exchange: string;
 }
 
+/** Price history for the range chart: [unix seconds, price] pairs. */
+export type Series = [number, number][];
+export interface ChartSet {
+  intraday: Series; // last ~5 sessions, 15-minute bars (→ 1D and 5D ranges)
+  weekly: Series; // ~5 years, weekly closes (→ 5Y range)
+}
+
 export interface StockInput {
   profile: CompanyProfile;
   candles: Candle[]; // oldest -> newest, >= 260 trading days recommended
   fundamentals: Fundamentals;
   news: NewsItem[];
+  charts?: ChartSet;
+}
+
+/** data/charts/<SYMBOL>.json — one small file per stock, loaded when its page opens. */
+export interface ChartFile {
+  symbol: string;
+  updatedAt: string;
+  intraday: Series;
+  daily: Series; // ~1 year of daily closes (→ 1M, 6M, YTD, 1Y)
+  weekly: Series;
 }
 
 export interface Factor {
@@ -113,7 +130,7 @@ export interface DailyReport {
   methodologyVersion: string;
   universeSize: number;
   top: StockScore[]; // top 50
-  quotes: Record<string, { price: number; changePct: number; name: string }>; // whole universe, for portfolios
+  quotes: Record<string, { price: number; changePct: number; name: string; sector?: string }>; // whole universe (S&P 500)
   sectorMedians: Record<string, { pe: number | null; netMargin: number | null; revenueGrowthYoY: number | null }>;
   disclaimer: string;
   source?: 'demo' | 'live-snapshot' | 'live';

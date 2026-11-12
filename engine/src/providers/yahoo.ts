@@ -4,7 +4,7 @@
  * News (with publisher): /v1/finance/search
  * Unofficial endpoints — fine for personal use/testing; use a licensed feed for a commercial launch.
  */
-import type { Candle, Fundamentals, NewsItem, StockInput } from '../types.js';
+import type { Candle, ChartSet, Fundamentals, NewsItem, Series, StockInput } from '../types.js';
 
 export type GetJSON = (path: string) => Promise<any>;
 
@@ -40,6 +40,27 @@ export function isAboutCompany(headline: string, symbol: string, name: string): 
   if (tick.length >= 2 && new RegExp(`(^|[^A-Za-z])${tick.replace('.', '\\.')}([^A-Za-z]|$)`).test(headline)) return true;
   const word = name.replace(/^the\s+/i, '').split(/[\s,.&]+/)[0];
   return word.length >= 3 && new RegExp(`\\b${word.replace(/[^A-Za-z0-9]/g, '')}`, 'i').test(headline);
+}
+
+function toSeries(json: any): Series {
+  const r = json?.chart?.result?.[0];
+  const ts: number[] = r?.timestamp ?? [];
+  const c: (number | null)[] = r?.indicators?.quote?.[0]?.close ?? [];
+  const out: Series = [];
+  ts.forEach((t, i) => {
+    const v = c[i];
+    if (typeof v === 'number' && Number.isFinite(v)) out.push([t, Math.round(v * 100) / 100]);
+  });
+  return out;
+}
+
+/** Intraday (5 sessions, 15m) + 5-year weekly series for the price-range chart. */
+export async function loadYahooCharts(get: GetJSON, symbol: string): Promise<ChartSet> {
+  const [intra, weekly] = await Promise.all([
+    get(`/v8/finance/chart/${symbol}?range=5d&interval=15m`).then(toSeries).catch(() => [] as Series),
+    get(`/v8/finance/chart/${symbol}?range=5y&interval=1wk`).then(toSeries).catch(() => [] as Series),
+  ]);
+  return { intraday: intra, weekly };
 }
 
 export async function loadYahooStock(

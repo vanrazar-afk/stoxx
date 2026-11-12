@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { I18nManager, Platform, View } from 'react-native';
 import { useLang, useT } from '@/lib/i18n';
 import { Stack, router, useSegments } from 'expo-router';
@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Heebo_400Regular, Heebo_500Medium, Heebo_700Bold, Heebo_800ExtraBold } from '@expo-google-fonts/heebo';
 import { DataProvider } from '@/lib/data';
+import { AuthProvider } from '@/lib/auth';
 import { useApp } from '@/lib/store';
 import { colors, fonts } from '@/lib/theme';
 
@@ -23,18 +24,32 @@ function useNativeDirection() {
   return lang;
 }
 
-function DisclaimerGate() {
+/** Until the user accepted the disclaimer AND chose Google or guest, show the entry screen. */
+function EntryGate() {
   const accepted = useApp((s) => s.disclaimerAcceptedAt);
-  const hydrated = useApp.persist?.hasHydrated?.() ?? true;
+  const account = useApp((s) => s.account);
+  const [hydrated, setHydrated] = useState(() => useApp.persist?.hasHydrated?.() ?? true);
+  useEffect(() => useApp.persist?.onFinishHydration?.(() => setHydrated(true)), []);
   const segments = useSegments();
   useEffect(() => {
-    if (hydrated && !accepted && segments[0] !== 'onboarding') router.replace('/onboarding');
-  }, [accepted, hydrated, segments]);
+    const free = segments[0] === 'onboarding' || segments[0] === 'accessibility';
+    if (hydrated && (!accepted || !account) && !free) router.replace('/onboarding');
+  }, [accepted, account, hydrated, segments]);
   return null;
+}
+
+/** Web: keep <html lang/dir> in sync for screen readers and browser translation. */
+function useDocumentLang(lang: string) {
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+  }, [lang]);
 }
 
 export default function RootLayout() {
   const lang = useNativeDirection();
+  useDocumentLang(lang);
   const t = useT();
   const [loaded] = useFonts({ Heebo_400Regular, Heebo_500Medium, Heebo_700Bold, Heebo_800ExtraBold });
   if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
@@ -44,6 +59,7 @@ export default function RootLayout() {
       {/* `dir` makes react-native-web lay out RTL; ignored on native */}
       <View style={{ flex: 1, backgroundColor: colors.bg }} {...({ dir: lang === 'he' ? 'rtl' : 'ltr', lang } as object)}>
         <DataProvider>
+          <AuthProvider>
           <StatusBar style="light" />
           <Stack
             screenOptions={{
@@ -58,8 +74,10 @@ export default function RootLayout() {
             <Stack.Screen name="stock/[symbol]" options={{ title: '' }} />
             <Stack.Screen name="add-holding" options={{ presentation: 'modal', title: t('ah_title') }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="accessibility" options={{ title: t('st_a11y') }} />
           </Stack>
-          <DisclaimerGate />
+          <EntryGate />
+          </AuthProvider>
         </DataProvider>
       </View>
     </SafeAreaProvider>

@@ -6,8 +6,8 @@ export const colors = {
   border: '#232E50',
   text: '#EEF2FF',
   textDim: '#9AA6C7',
-  textMute: '#6B7699',
-  brand: '#7C5CFF',
+  textMute: '#8792B5', // ≥4.5:1 on all surfaces (WCAG AA)
+  brand: '#6A48F5', // white text on brand ≥4.5:1
   brand2: '#3DD6F5',
   up: '#2BD98B',
   upBg: 'rgba(43,217,139,0.12)',

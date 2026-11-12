@@ -87,7 +87,13 @@
       "dataUrl": "",
       "privacyPolicyUrl": "",
       "termsUrl": "",
-      "supportEmail": ""
+      "supportEmail": "",
+      "firebase": {
+        "apiKey": "",
+        "authDomain": "",
+        "projectId": "",
+        "appId": ""
+      }
     }
   }
 }

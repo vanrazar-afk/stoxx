@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { RefreshControl, ScrollView, SectionList, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Feather from '@expo/vector-icons/Feather';
@@ -8,7 +8,8 @@ import { colors, fonts, radius, space } from '@/lib/theme';
 import { fmtDate, timeAgo } from '@/lib/format';
 import { useT, sectorName } from '@/lib/i18n';
 import { T, N, Row, Chip, DemoBanner, Disclaimer, LangToggle } from '@/components/ui';
-import { StockRow } from '@/components/StockRow';
+import { StockRow, UnscoredRow } from '@/components/StockRow';
+import type { StockScore } from '@/lib/types';
 
 type Sort = 'score' | 'technical' | 'fundamental' | 'sentiment';
 
@@ -35,6 +36,23 @@ export default function TopRanking() {
     const key = (s: (typeof v)[number]) => (sort === 'score' ? s.score : s[sort].score);
     return [...v].sort((a, b) => key(b) - key(a) || a.rank - b.rank);
   }, [report, q, sector, sort]);
+
+  // Every other S&P 500 stock: listed without a score
+  const others = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    const inTop = new Set(report.top.map((s) => s.symbol));
+    return Object.entries(report.quotes)
+      .filter(([sym, v]) => !inTop.has(sym))
+      .filter(([sym, v]) => (!sector || v.sector === sector) && (!ql || sym.toLowerCase().includes(ql) || v.name.toLowerCase().includes(ql)))
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([symbol, v]) => ({ symbol, ...v }));
+  }, [report, q, sector]);
+
+  type OtherRow = (typeof others)[number];
+  const sections = [
+    { key: 'top', data: list as (StockScore | OtherRow)[] },
+    ...(others.length ? [{ key: 'others', data: others as (StockScore | OtherRow)[] }] : []),
+  ];
 
   const avg = Math.round(report.top.reduce((a, s) => a + s.score, 0) / Math.max(1, report.top.length));
   const hasPrev = report.top.some((s) => s.prevRank !== null);
@@ -81,11 +99,12 @@ export default function TopRanking() {
       )}
 
       <Row style={{ backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: colors.border }}>
-        <Feather name="search" size={18} color={colors.textMute} />
+        <Feather name="search" size={18} color={colors.textMute} accessibilityElementsHidden importantForAccessibility="no" />
         <TextInput
           value={q}
           onChangeText={setQ}
           placeholder={t('search_ph')}
+          accessibilityLabel={t('search_ph')}
           placeholderTextColor={colors.textMute}
           style={{ flex: 1, color: colors.text, fontFamily: fonts.regular, paddingVertical: 11, fontSize: 15, textAlign: t.lang === 'he' ? 'right' : 'left' }}
           autoCapitalize="characters"
@@ -109,14 +128,35 @@ export default function TopRanking() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
-      <FlatList
-        data={list}
+      <SectionList
+        sections={sections}
         keyExtractor={(s) => s.symbol}
-        renderItem={({ item }) => <StockRow s={item} />}
+        renderItem={({ item, section }) =>
+          section.key === 'top' ? (
+            <StockRow s={item as StockScore} />
+          ) : (
+            <UnscoredRow {...(item as OtherRow)} />
+          )
+        }
+        renderSectionHeader={({ section }) =>
+          section.key === 'others' ? (
+            <View style={{ paddingTop: space(6), paddingBottom: space(2), backgroundColor: colors.bg }} accessibilityRole="header">
+              <T w="bold" size={18}>
+                {t('unscored_title')} · {others.length}
+              </T>
+              <T size={12} color={colors.textDim}>
+                {t('unscored_sub')}
+              </T>
+            </View>
+          ) : null
+        }
+        stickySectionHeadersEnabled={false}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListHeaderComponent={Header}
         ListEmptyComponent={<T color={colors.textDim} style={{ textAlign: 'center', marginTop: 40 }}>{t('no_results')}</T>}
         ListFooterComponent={<Disclaimer />}
+        initialNumToRender={20}
+        windowSize={11}
         contentContainerStyle={{ padding: space(4), paddingBottom: space(10), maxWidth: 760, width: '100%', alignSelf: 'center' }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.brand2} />}
       />

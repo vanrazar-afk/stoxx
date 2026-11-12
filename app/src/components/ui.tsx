@@ -40,7 +40,7 @@ export function Chip({ label, active, onPress, color }: { label: string; active?
 export function Delta({ value, size = 13, suffix = '%' }: { value: number; size?: number; suffix?: string }) {
   const up = value >= 0;
   return (
-    <View style={[styles.delta, { backgroundColor: up ? colors.upBg : colors.downBg }]}>
+    <View style={[styles.delta, { backgroundColor: up ? colors.upBg : colors.downBg }]} accessible accessibilityLabel={`${up ? '+' : '−'}${Math.abs(value).toFixed(2)}${suffix}`}>
       <N size={size} w="bold" color={up ? colors.up : colors.down}>
         {up ? '▲' : '▼'} {Math.abs(value).toFixed(2)}
         {suffix}

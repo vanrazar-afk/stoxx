@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import Constants from 'expo-constants';
-import type { DailyReport, StockScore } from './types';
+import type { ChartFile, DailyReport, StockScore } from './types';
 // Bundled fallback: a real market snapshot (or synthetic demo data, flagged by `source`)
 import demo from '../data/demo-daily.json';
 
@@ -13,6 +13,39 @@ import demo from '../data/demo-daily.json';
  */
 const DATA_URL: string = process.env.EXPO_PUBLIC_DATA_URL || (Constants.expoConfig?.extra?.dataUrl as string) || '';
 const CACHE_KEY = 'stoxx-report-cache';
+/** Folder that holds daily.json and charts/<SYMBOL>.json */
+export const DATA_BASE = DATA_URL ? DATA_URL.replace(/[^/]*$/, '') : '';
+
+const chartCache = new Map<string, { at: number; file: ChartFile }>();
+
+/** Loads the per-stock price-history file (refreshed by the engine every ~20 minutes). */
+export function useChart(symbol: string) {
+  const [file, setFile] = useState<ChartFile | null>(chartCache.get(symbol)?.file ?? null);
+  const [state, setState] = useState<'loading' | 'ready' | 'unavailable'>(chartCache.has(symbol) ? 'ready' : 'loading');
+  useEffect(() => {
+    let alive = true;
+    const hit = chartCache.get(symbol);
+    if (hit && Date.now() - hit.at < 5 * 60 * 1000) return;
+    if (!DATA_BASE) {
+      setState('unavailable');
+      return;
+    }
+    fetch(`${DATA_BASE}charts/${encodeURIComponent(symbol)}.json?t=${Math.floor(Date.now() / 300000)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((f: ChartFile) => {
+        chartCache.set(symbol, { at: Date.now(), file: f });
+        if (alive) {
+          setFile(f);
+          setState('ready');
+        }
+      })
+      .catch(() => alive && !hit && setState('unavailable'));
+    return () => {
+      alive = false;
+    };
+  }, [symbol]);
+  return { file, state };
+}
 
 interface DataState {
   report: DailyReport;

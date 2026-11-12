@@ -12,6 +12,7 @@ import { useT, sectorName, factorLabel, factorValue, levelsMethod, pillarSummary
 import { fmtDate, pct, timeAgo, usd } from '@/lib/format';
 import { T, N, Row, Card, Delta, Button, SectionTitle, Disclaimer, DemoBanner } from '@/components/ui';
 import { ScoreRing, PillarBar, LevelsChart } from '@/components/charts';
+import { PriceChart } from '@/components/PriceChart';
 
 const SOURCE_NAMES: Record<string, string> = {
   reuters: 'Reuters', bloomberg: 'Bloomberg', wsj: 'WSJ', ft: 'Financial Times', cnbc: 'CNBC',
@@ -28,15 +29,64 @@ export default function StockScreen() {
   const toggleWatch = useApp((st) => st.toggleWatch);
   const { width } = useWindowDimensions();
 
+  const starButton = (sym: string) => () => (
+    <Pressable
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        toggleWatch(sym);
+      }}
+      hitSlop={12}
+      style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: watching }}
+      accessibilityLabel={watching ? t('watch_remove') : t('watch_add')}
+    >
+      <Feather name="star" size={22} color={watching ? colors.warn : colors.textDim} />
+    </Pressable>
+  );
+
   if (!s) {
+    // A stock outside today's top 50: price history only, clearly marked "no score"
     const q = report.quotes[symbol];
     return (
-      <View style={{ flex: 1, padding: space(6), gap: 12 }}>
-        <Stack.Screen options={{ title: symbol }} />
-        <T w="bold" size={20}>{q?.name ?? symbol}</T>
-        {q && <N size={18}>{usd(q.price)}</N>}
-        <T color={colors.textDim}>{t('not_in_top')}</T>
-      </View>
+      <>
+        <Stack.Screen options={{ title: symbol, headerRight: starButton(symbol) }} />
+        <ScrollView contentContainerStyle={{ padding: space(4), gap: space(4), paddingBottom: space(12), maxWidth: 760, width: '100%', alignSelf: 'center' }}>
+          <Card style={{ gap: 6 }}>
+            <Row style={{ gap: space(4) }}>
+              <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                <T size={12} w="bold" color={colors.textDim} style={{ textAlign: 'center' }}>
+                  {t('no_score')}
+                </T>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <T w="black" size={22} numberOfLines={2} accessibilityRole="header">
+                  {q?.name ?? symbol}
+                </T>
+                {q?.sector && (
+                  <T size={13} color={colors.textDim}>
+                    {sectorName(q.sector, t.lang)}
+                  </T>
+                )}
+                {q && (
+                  <Row style={{ gap: 8, marginTop: 4 }}>
+                    <N w="bold" size={22}>
+                      {usd(q.price)}
+                    </N>
+                    <Delta value={q.changePct} />
+                  </Row>
+                )}
+              </View>
+            </Row>
+            <T size={13} color={colors.textDim} style={{ marginTop: 8 }}>
+              {t('unscored_note')}
+            </T>
+          </Card>
+          <PriceChart symbol={symbol} />
+          <Button label={t('add_to_portfolio')} icon="plus" onPress={() => router.push({ pathname: '/add-holding', params: { symbol } })} />
+          <Disclaimer />
+        </ScrollView>
+      </>
     );
   }
 
@@ -47,18 +97,7 @@ export default function StockScreen() {
       <Stack.Screen
         options={{
           title: s.symbol,
-          headerRight: () => (
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                toggleWatch(s.symbol);
-              }}
-              hitSlop={12}
-              accessibilityLabel={watching ? t('watch_remove') : t('watch_add')}
-            >
-              <Feather name="star" size={22} color={watching ? colors.warn : colors.textDim} />
-            </Pressable>
-          ),
+          headerRight: starButton(s.symbol),
         }}
       />
       <ScrollView contentContainerStyle={{ padding: space(4), gap: space(4), paddingBottom: space(12), maxWidth: 760, width: '100%', alignSelf: 'center' }}>
@@ -90,6 +129,8 @@ export default function StockScreen() {
             <PillarBar label={t('p_sent')} value={s.sentiment.score} color={colors.sent} />
           </View>
         </Card>
+
+        <PriceChart symbol={s.symbol} />
 
         {/* Levels */}
         <Card>

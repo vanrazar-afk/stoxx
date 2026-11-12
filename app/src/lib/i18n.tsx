@@ -138,6 +138,29 @@ const D = {
   ],
   ob_check: ['קראתי והבנתי שהמידע באפליקציה אינו ייעוץ השקעות, ואני בן/בת 18 ומעלה.', 'I understand this app is not investment advice and I am 18 or older.'],
   ob_start: ['בואו נתחיל', 'Get started'],
+  // price chart & full S&P list
+  price_history: ['מחיר לאורך זמן', 'Price history'],
+  chart_unavailable: ['אין נתוני גרף זמינים כרגע', 'Chart data not available yet'],
+  no_score: ['ללא ציון', 'No score'],
+  unscored_title: ['שאר מניות S&P 500', 'Rest of the S&P 500'],
+  unscored_sub: ['מניות שלא נכנסו ל-50 המובילות — ללא ציון', 'Not in today’s top 50 — no score'],
+  unscored_note: ['המניה לא נכנסה היום ל-50 המובילות לפי המודל, ולכן אין לה ציון וניתוח מפורט.', 'This stock is not in today’s model top 50, so it has no score or detailed analysis.'],
+  // account
+  ob_choose: ['איך תרצו להיכנס?', 'How would you like to continue?'],
+  login_google: ['כניסה עם Google', 'Continue with Google'],
+  login_google_sub: ['התיק ורשימת המעקב נשמרים בחשבון ומסונכרנים בין מכשירים', 'Portfolio and watchlist are saved to your account and synced across devices'],
+  login_guest: ['המשך ללא הרשמה', 'Continue without signing up'],
+  login_guest_sub: ['הנתונים נשמרים רק במכשיר הזה', 'Data stays on this device only'],
+  login_unavailable: ['כניסה עם Google עדיין לא הופעלה באפליקציה', 'Google sign-in is not enabled yet'],
+  login_check_first: ['יש לסמן את תיבת האישור לפני הכניסה', 'Please tick the confirmation box first'],
+  st_account: ['חשבון', 'Account'],
+  st_guest: ['אורח — הנתונים נשמרים במכשיר בלבד', 'Guest — data stays on this device'],
+  st_signed_in: ['מחובר כ-{n}', 'Signed in as {n}'],
+  st_sign_in: ['כניסה עם Google', 'Sign in with Google'],
+  st_sign_out: ['התנתקות', 'Sign out'],
+  st_delete_account: ['מחיקת החשבון וכל הנתונים', 'Delete account and all data'],
+  st_delete_account_b: ['החשבון, התיק ורשימת המעקב יימחקו לצמיתות מהמכשיר ומהענן.', 'Your account, portfolio and watchlist will be permanently deleted from this device and the cloud.'],
+  st_a11y: ['הצהרת נגישות', 'Accessibility statement'],
 } as const;
 
 export type Key = keyof typeof D;
