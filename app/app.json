@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "StoXX",
-    "slug": "stoxx",
-    "scheme": "stoxx",
+    "name": "VOLTIX",
+    "slug": "voltix",
+    "scheme": "voltix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stoxx.app",
+      "bundleIdentifier": "com.voltix.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleAllowMixedLocalizations": true,
@@ -39,7 +39,7 @@
       }
     },
     "android": {
-      "package": "com.stoxx.app",
+      "package": "com.voltix.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A0F1E",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -58,8 +58,8 @@
       "favicon": "./assets/favicon.png",
       "output": "single",
       "bundler": "metro",
-      "name": "StoXX",
-      "shortName": "StoXX",
+      "name": "VOLTIX",
+      "shortName": "VOLTIX",
       "lang": "he",
       "themeColor": "#0A0F1E",
       "backgroundColor": "#0A0F1E"

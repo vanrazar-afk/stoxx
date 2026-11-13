@@ -5,10 +5,10 @@
  * Output: out/daily.json (+ dated archive out/history/YYYY-MM-DD.json)
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { buildReport } from './rank.js';
+import { buildReport, buildRanking } from './rank.js';
 import { mockUniverse } from './providers/mock.js';
 import { loadStock, loadUniverse, limiter } from './providers/live.js';
-import { loadFreeInputs } from './providers/free.js';
+import { loadFreeInputs, type InputCache } from './providers/free.js';
 import { claudeClassifier, lexiconClassifier } from './scoring/sentiment.js';
 import type { ChartFile, DailyReport, NewsItem, StockInput } from './types.js';
 import { mergeNews } from './providers/googlenews.js';
@@ -20,6 +20,8 @@ const outDir = process.env.OUT_DIR ?? 'out';
 async function main() {
   const asOf = new Date();
   let inputs: StockInput[];
+  let mode: 'full' | 'quick' = 'full';
+  let cache: InputCache | null = null;
 
   const inputsArg = process.argv.find((a) => a.startsWith('--inputs='));
   if (inputsArg) {
@@ -34,7 +36,17 @@ async function main() {
     inputs = mockUniverse(new Date('2026-11-06T21:00:00Z'));
   } else if (!process.env.FMP_API_KEY) {
     // Free stack, no keys: Yahoo Finance + open S&P 500 list
-    inputs = await loadFreeInputs({ asOf, limit: Number(process.env.UNIVERSE_LIMIT ?? 0) });
+    // Full run (prices + fundamentals + news) at most hourly; in between only prices/technicals are refreshed.
+    const prevCache: InputCache | null = await readFile(`${outDir}/cache.json`, 'utf8').then(JSON.parse).catch(() => null);
+    const ageMin = prevCache ? (asOf.getTime() - new Date(prevCache.fetchedAt).getTime()) / 60000 : Infinity;
+    const maxAge = Number(process.env.FULL_EVERY_MIN ?? 55);
+    if (prevCache && ageMin < maxAge && process.env.FULL_RUN !== '1') mode = 'quick';
+    console.log(`Mode: ${mode}${prevCache ? ` (cache ${Math.round(ageMin)} min old)` : ''}`);
+    inputs = await loadFreeInputs({ asOf, limit: Number(process.env.UNIVERSE_LIMIT ?? 0), reuse: mode === 'quick' ? prevCache : null });
+    cache =
+      mode === 'quick'
+        ? prevCache
+        : { fetchedAt: asOf.toISOString(), items: Object.fromEntries(inputs.map((s) => [s.profile.symbol, { fundamentals: s.fundamentals, news: s.news }])) };
     if (inputs.length < 60) throw new Error(`Only ${inputs.length} stocks loaded — aborting so yesterday's report stays online.`);
   } else {
     const fmpKey = process.env.FMP_API_KEY;
@@ -73,7 +85,9 @@ async function main() {
   }
 
   const classify = process.env.ANTHROPIC_API_KEY ? claudeClassifier(process.env.ANTHROPIC_API_KEY) : lexiconClassifier;
-  const report = await buildReport(inputs, { asOf: args.has('--mock') ? new Date('2026-11-06T21:00:00Z') : asOf, previous, classify });
+  const { report, all } = await buildRanking(inputs, { asOf: args.has('--mock') ? new Date('2026-11-06T21:00:00Z') : asOf, previous, classify });
+  report.mode = mode;
+  if (cache) report.fullAt = cache.fetchedAt;
 
   report.source = args.has('--mock') ? 'demo' : 'live';
   report.dataProvider = args.has('--mock') ? undefined : 'Yahoo Finance + Google News (free) · S&P 500 list: github.com/datasets';
@@ -82,6 +96,11 @@ async function main() {
   if (previous) await writeFile(`${outDir}/prev.json`, JSON.stringify(previous));
   await writeFile(`${outDir}/daily.json`, json);
   await writeFile(`${outDir}/history/${report.asOf}.json`, json);
+  if (cache) await writeFile(`${outDir}/cache.json`, JSON.stringify(cache));
+  // Full analysis per stock (opened from the stock page; daily.json keeps only the top 50 in full)
+  await mkdir(`${outDir}/stocks`, { recursive: true });
+  for (const s of all) await writeFile(`${outDir}/stocks/${s.symbol}.json`, JSON.stringify(s));
+  console.log(`stock files written: ${all.length}`);
   // One chart file per stock (price-range chart in the app)
   await mkdir(`${outDir}/charts`, { recursive: true });
   let charts = 0;
@@ -98,7 +117,7 @@ async function main() {
     charts++;
   }
   console.log(`charts written: ${charts}`);
-  console.log(`Top ${report.top.length} of ${report.universeSize} written. #1 ${report.top[0]?.symbol} (${report.top[0]?.score})`);
+  console.log(`[${mode}] Top ${report.top.length} of ${report.universeSize} written. #1 ${report.top[0]?.symbol} (${report.top[0]?.score})`);
 }
 
 main().catch((e) => {

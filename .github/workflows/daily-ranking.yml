@@ -1,14 +1,17 @@
-name: Daily ranking + web app
+name: Ranking + web app
 
-# Refreshes the ranking with FREE data sources and republishes the web app to GitHub Pages (free):
-#  - every 20 minutes while Wall Street is open, 13:00–21:40 UTC Mon–Fri
-#    (covers the 9:30–16:00 New York session in both summer and winter time,
-#     and the last runs after the close lock in the closing prices)
+# Refreshes the ranking of ALL S&P 500 stocks with FREE data sources and republishes the web app (GitHub Pages):
+#  - every 5 minutes while Wall Street is open (9:30–16:00 New York time, Mon–Fri; checked in NY time,
+#    so summer/winter clock changes are handled), plus one run just after the close to lock closing prices
+#  - every hour when the market is closed (nights, weekends)
+#  News + fundamentals are re-fetched in a "full" run at most once an hour; the 5-minute runs refresh
+#  prices and technicals only (keeps Yahoo/Google request volume reasonable).
 #  GitHub may start scheduled runs a few minutes late when its servers are busy.
 on:
   schedule:
-    - cron: '*/20 13-21 * * 1-5'
-  workflow_dispatch: {}        # "Run workflow" button for manual runs
+    - cron: '*/5 13-21 * * 1-5'   # candidate 5-minute slots (gate below keeps only market hours)
+    - cron: '11 * * * *'          # hourly (gate below keeps only closed-market hours)
+  workflow_dispatch: {}           # "Run workflow" button for manual runs
   push:
     branches: [main]
     paths: ['app/**', 'engine/**', '.github/workflows/**']
@@ -24,36 +27,65 @@ env:
   SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
 jobs:
-  build:
+  gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          SCHED: ${{ github.event.schedule }}
+        run: |
+          DOW=$(TZ=America/New_York date +%u)          # 1=Mon … 7=Sun
+          HM=$(TZ=America/New_York date +%H%M | sed 's/^0*//'); HM=${HM:-0}
+          OPEN=false
+          if [ "$DOW" -le 5 ] && [ "$HM" -ge 930 ] && [ "$HM" -lt 1610 ]; then OPEN=true; fi
+          RUN=true
+          if [ "$SCHED" = '*/5 13-21 * * 1-5' ] && [ "$OPEN" != true ]; then RUN=false; fi
+          if [ "$SCHED" = '11 * * * *' ] && [ "$OPEN" = true ]; then RUN=false; fi
+          echo "NY $DOW $HM open=$OPEN sched='$SCHED' → run=$RUN"
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with: { node-version: 22, cache: npm, cache-dependency-path: '**/package-lock.json' }
 
       # ---------- 1. Ranking engine ----------
-      - run: npm install
+      - run: npm install --no-audit --no-fund
         working-directory: engine
-      - name: Fetch yesterday's report (for rank changes)
+      - name: Fetch the last published report + news/fundamentals cache
         working-directory: engine
         run: |
           mkdir -p out
           curl -fsSL "$SITE_URL/data/daily.json" -o out/daily.json || rm -f out/daily.json
           curl -fsSL "$SITE_URL/data/prev.json" -o out/prev.json || rm -f out/prev.json
+          curl -fsSL "$SITE_URL/data/cache.json" -o out/cache.json || rm -f out/cache.json
       - name: 'Build the ranking (free - Yahoo Finance + Google News, no keys)'
         id: engine
-        continue-on-error: true
         working-directory: engine
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # optional, better sentiment
+          FULL_RUN: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: npm run daily
 
-      # ---------- 2. Web app ----------
-      - run: npm install
+      # ---------- 2. Web app (rebuilt only when the app code changes) ----------
+      - id: webcache
+        uses: actions/cache@v4
+        with:
+          path: app/dist
+          key: web-${{ hashFiles('app/src/**', 'app/public/**', 'app/assets/**', 'app/app.json', 'app/app.config.ts', 'app/package-lock.json') }}
+      - if: steps.webcache.outputs.cache-hit != 'true'
+        run: npm install --no-audit --no-fund
         working-directory: app
       - name: Export web app
+        if: steps.webcache.outputs.cache-hit != 'true'
         working-directory: app
         env:
           EXPO_BASE_URL: /${{ github.event.repository.name }}
@@ -66,11 +98,12 @@ jobs:
           mkdir -p site/data
           cp -r app/dist/. site/
           cp site/index.html site/404.html          # deep links work on GitHub Pages
-          [ -f engine/out/daily.json ] && cp -r engine/out/. site/data/ || echo "no new data"
+          cp -r engine/out/. site/data/
           # Web-app paths live under /<repo-name> on GitHub Pages
           BASE="/${{ github.event.repository.name }}"
           for f in site/index.html site/404.html site/manifest.json site/sw.js; do sed -i "s#__BASE__#$BASE#g" "$f"; done
           touch site/.nojekyll
+          du -sh site site/data
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: site }

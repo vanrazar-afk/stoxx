@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from '@expo/vector-icons/Feather';
 import { T, Row } from '@/components/ui';
 import { ActivityIndicator } from 'react-native';
-import { ScoreRing } from '@/components/charts';
+import { Logo } from '@/components/Logo';
 import { colors, radius, space } from '@/lib/theme';
 import { useApp } from '@/lib/store';
 import { useT } from '@/lib/i18n';
@@ -39,9 +39,9 @@ export default function Onboarding() {
             <LangToggle />
           </View>
           <View style={{ alignItems: 'center', gap: space(3), marginTop: space(6) }}>
-            <ScoreRing score={87} size={96} pillars={[30, 28, 29]} />
-            <T w="black" size={34}>
-              StoXX
+            <Logo size={104} />
+            <T w="black" size={34} style={{ letterSpacing: 2 }}>
+              VOLTIX
             </T>
             <T color={colors.textDim} style={{ textAlign: 'center' }}>
               {t('ob_tagline')}

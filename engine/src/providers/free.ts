@@ -13,7 +13,7 @@ import { fetchGoogleNews, mergeNews } from './googlenews.js';
 
 const UNIVERSE_CSV = 'https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv';
 const YAHOO = 'https://query1.finance.yahoo.com/v8/finance/chart';
-const UA = { 'User-Agent': 'Mozilla/5.0 (StoXX research engine)' };
+const UA = { 'User-Agent': 'Mozilla/5.0 (VOLTIX research engine)' };
 
 // GICS → the sector names used across the app
 const GICS: Record<string, string> = {
@@ -114,12 +114,25 @@ export function parseFinnhubMetrics(m: any, price: number, analystTarget: number
  * Free stack, no API keys: S&P 500 list (GitHub open data) + Yahoo Finance (prices, fundamentals,
  * analyst targets, earnings dates, news with publisher). Runs fine on GitHub Actions.
  */
-export async function loadFreeInputs(opts: { asOf: Date; limit?: number; concurrency?: number; log?: (s: string) => void }): Promise<StockInput[]> {
+export interface InputCache {
+  fetchedAt: string;
+  items: Record<string, { fundamentals: Fundamentals; news: NewsItem[] }>;
+}
+
+export async function loadFreeInputs(opts: {
+  asOf: Date;
+  limit?: number;
+  concurrency?: number;
+  log?: (s: string) => void;
+  /** When given, news + fundamentals come from here (quick refresh: only prices are fetched). */
+  reuse?: InputCache | null;
+}): Promise<StockInput[]> {
   const log = opts.log ?? console.log;
   let universe = await loadFreeUniverse();
   if (opts.limit) universe = universe.slice(0, opts.limit);
   log(`Universe: ${universe.length} (S&P 500)`);
   const { get, crumb } = await yahooNodeSession();
+  if (opts.reuse) log(`Quick refresh: reusing news & fundamentals from ${opts.reuse.fetchedAt}`);
   log(crumb ? 'Yahoo session ready' : 'Yahoo crumb unavailable — fundamentals will be neutral');
   const out: StockInput[] = [];
   let idx = 0;
@@ -128,8 +141,14 @@ export async function loadFreeInputs(opts: { asOf: Date; limit?: number; concurr
     while (idx < universe.length) {
       const u = universe[idx++];
       try {
-        const input = await loadYahooStock(get, u, crumb, opts.asOf, (m) => log(m));
+        const cached = opts.reuse?.items[u.symbol];
+        const input = await loadYahooStock(get, u, crumb, opts.asOf, (m) => log(m), cached);
         input.charts = await loadYahooCharts(get, u.symbol);
+        if (cached) {
+          out.push(input);
+          if (++done % 50 === 0) log(`loaded ${done}/${universe.length}`);
+          continue;
+        }
         try {
           const gn = (await fetchGoogleNews(u.name)).filter((n) => isAboutCompany(n.headline, u.symbol, u.name));
           input.news = mergeNews(input.news, gn);

@@ -1,8 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import Constants from 'expo-constants';
-import type { ChartFile, DailyReport, StockScore } from './types';
+import type { ChartFile, DailyReport, RankEntry, StockScore } from './types';
 // Bundled fallback: a real market snapshot (or synthetic demo data, flagged by `source`)
 import demo from '../data/demo-daily.json';
 
@@ -18,7 +18,7 @@ export const DATA_BASE = DATA_URL ? DATA_URL.replace(/[^/]*$/, '') : '';
 
 const chartCache = new Map<string, { at: number; file: ChartFile }>();
 
-/** Loads the per-stock price-history file (refreshed by the engine every ~20 minutes). */
+/** Loads the per-stock price-history file (refreshed by the engine every ~5 minutes in market hours). */
 export function useChart(symbol: string) {
   const [file, setFile] = useState<ChartFile | null>(chartCache.get(symbol)?.file ?? null);
   const [state, setState] = useState<'loading' | 'ready' | 'unavailable'>(chartCache.has(symbol) ? 'ready' : 'loading');
@@ -47,6 +47,43 @@ export function useChart(symbol: string) {
   return { file, state };
 }
 
+const stockCache = new Map<string, { at: number; s: StockScore }>();
+
+/** Full analysis for any S&P 500 stock (data/stocks/<SYMBOL>.json); top-50 stocks are already in daily.json. */
+export function useStockDetail(symbol: string, inline?: StockScore) {
+  const { report } = useData();
+  const [detail, setDetail] = useState<StockScore | null>(inline ?? stockCache.get(symbol)?.s ?? null);
+  const [state, setState] = useState<'loading' | 'ready' | 'unavailable'>(inline || stockCache.has(symbol) ? 'ready' : 'loading');
+  useEffect(() => {
+    if (inline) {
+      setDetail(inline);
+      setState('ready');
+      return;
+    }
+    let alive = true;
+    const hit = stockCache.get(symbol);
+    if (hit && hit.s && Date.now() - hit.at < 4 * 60 * 1000) return;
+    if (!DATA_BASE) {
+      setState('unavailable');
+      return;
+    }
+    fetch(`${DATA_BASE}stocks/${encodeURIComponent(symbol)}.json?t=${encodeURIComponent(report.generatedAt)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((s: StockScore) => {
+        stockCache.set(symbol, { at: Date.now(), s });
+        if (alive) {
+          setDetail(s);
+          setState('ready');
+        }
+      })
+      .catch(() => alive && !hit && setState('unavailable'));
+    return () => {
+      alive = false;
+    };
+  }, [symbol, inline, report.generatedAt]);
+  return { detail, state };
+}
+
 interface DataState {
   report: DailyReport;
   isDemo: boolean;
@@ -54,6 +91,7 @@ interface DataState {
   error: string | null;
   refresh: () => Promise<void>;
   bySymbol: (s: string) => StockScore | undefined;
+  rankOf: (s: string) => RankEntry | undefined;
 }
 
 const Ctx = createContext<DataState | null>(null);
@@ -94,10 +132,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })();
   }, [refresh]);
 
-  // Keep fresh: re-check every 10 minutes while open, and whenever the app returns to the foreground.
+  // Keep fresh: re-check every 5 minutes while open, and whenever the app returns to the foreground.
   useEffect(() => {
     if (!DATA_URL) return;
-    const id = setInterval(refresh, 10 * 60 * 1000);
+    const id = setInterval(refresh, 5 * 60 * 1000);
     const sub = AppState.addEventListener('change', (st) => st === 'active' && refresh());
     return () => {
       clearInterval(id);
@@ -106,8 +144,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const bySymbol = useCallback((s: string) => report.top.find((t) => t.symbol === s), [report]);
+  const rankMap = useMemo(() => new Map((report.ranks ?? []).map((r) => [r.symbol, r])), [report]);
+  const rankOf = useCallback((s: string) => rankMap.get(s), [rankMap]);
 
-  return <Ctx.Provider value={{ report, isDemo, loading, error, refresh, bySymbol }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ report, isDemo, loading, error, refresh, bySymbol, rankOf }}>{children}</Ctx.Provider>;
 }
 
 export function useData() {

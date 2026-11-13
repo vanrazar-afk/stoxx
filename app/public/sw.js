@@ -1,5 +1,5 @@
-// StoXX service worker: network-first (always fresh rankings), cache fallback for offline use.
-const CACHE = 'stoxx-v1';
+// VOLTIX service worker: network-first (always fresh rankings), cache fallback for offline use.
+const CACHE = 'voltix-v2';
 self.addEventListener('install', (e) => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (e) => {

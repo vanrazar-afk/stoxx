@@ -20,8 +20,8 @@ export default function Accessibility() {
       h: L('כללי', 'General'),
       b: [
         L(
-          'אנו רואים חשיבות בהנגשת StoXX לכלל המשתמשים, כולל אנשים עם מוגבלות. האפליקציה נבנתה בשאיפה לעמוד בתקן הישראלי ת"י 5568 (המבוסס על WCAG 2.0) ברמה AA.',
-          'We want StoXX to be usable by everyone, including people with disabilities. The app aims to meet Israeli Standard IS 5568 (based on WCAG 2.0) at level AA.'
+          'אנו רואים חשיבות בהנגשת VOLTIX לכלל המשתמשים, כולל אנשים עם מוגבלות. האפליקציה נבנתה בשאיפה לעמוד בתקן הישראלי ת"י 5568 (המבוסס על WCAG 2.0) ברמה AA.',
+          'We want VOLTIX to be usable by everyone, including people with disabilities. The app aims to meet Israeli Standard IS 5568 (based on WCAG 2.0) at level AA.'
         ),
       ],
     },

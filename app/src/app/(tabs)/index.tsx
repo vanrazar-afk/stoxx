@@ -8,8 +8,9 @@ import { colors, fonts, radius, space } from '@/lib/theme';
 import { fmtDate, timeAgo } from '@/lib/format';
 import { useT, sectorName } from '@/lib/i18n';
 import { T, N, Row, Chip, DemoBanner, Disclaimer, LangToggle } from '@/components/ui';
-import { StockRow, UnscoredRow } from '@/components/StockRow';
-import type { StockScore } from '@/lib/types';
+import { Logo } from '@/components/Logo';
+import { RankedRow, StockRow, UnscoredRow } from '@/components/StockRow';
+import type { RankEntry, StockScore } from '@/lib/types';
 
 type Sort = 'score' | 'technical' | 'fundamental' | 'sentiment';
 
@@ -37,16 +38,19 @@ export default function TopRanking() {
     return [...v].sort((a, b) => key(b) - key(a) || a.rank - b.rank);
   }, [report, q, sector, sort]);
 
-  // Every other S&P 500 stock: listed without a score
+  // Every other S&P 500 stock: ranked (compact row) — or "no score" if it lacks enough history
   const others = useMemo(() => {
     const ql = q.trim().toLowerCase();
     const inTop = new Set(report.top.map((s) => s.symbol));
+    const rank = new Map((report.ranks ?? []).map((r) => [r.symbol, r]));
+    const key = (r?: RankEntry) => (!r ? -1 : sort === 'score' ? r.score : sort === 'technical' ? r.t : sort === 'fundamental' ? r.f : r.s);
     return Object.entries(report.quotes)
-      .filter(([sym, v]) => !inTop.has(sym))
+      .filter(([sym]) => !inTop.has(sym))
       .filter(([sym, v]) => (!sector || v.sector === sector) && (!ql || sym.toLowerCase().includes(ql) || v.name.toLowerCase().includes(ql)))
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([symbol, v]) => ({ symbol, ...v }));
-  }, [report, q, sector]);
+      .map(([symbol, v]) => ({ symbol, ...v, r: rank.get(symbol) }))
+      .sort((a, b) => key(b.r) - key(a.r) || (a.r?.rank ?? 1e9) - (b.r?.rank ?? 1e9) || a.symbol.localeCompare(b.symbol));
+  }, [report, q, sector, sort]);
+  const ranked = !!report.ranks?.length;
 
   type OtherRow = (typeof others)[number];
   const sections = [
@@ -61,9 +65,7 @@ export default function TopRanking() {
   const Header = (
     <View style={{ gap: space(4), marginBottom: space(3) }}>
       <Row style={{ justifyContent: 'space-between' }}>
-        <T w="black" size={22} color={colors.brand2}>
-          StoXX
-        </T>
+        <Logo size={34} withName />
         <LangToggle />
       </Row>
 
@@ -134,6 +136,8 @@ export default function TopRanking() {
         renderItem={({ item, section }) =>
           section.key === 'top' ? (
             <StockRow s={item as StockScore} />
+          ) : (item as OtherRow).r ? (
+            <RankedRow {...(item as OtherRow)} r={(item as OtherRow).r!} />
           ) : (
             <UnscoredRow {...(item as OtherRow)} />
           )
@@ -142,10 +146,10 @@ export default function TopRanking() {
           section.key === 'others' ? (
             <View style={{ paddingTop: space(6), paddingBottom: space(2), backgroundColor: colors.bg }} accessibilityRole="header">
               <T w="bold" size={18}>
-                {t('unscored_title')} · {others.length}
+                {t(ranked ? 'rest_title' : 'unscored_title')} · {others.length}
               </T>
               <T size={12} color={colors.textDim}>
-                {t('unscored_sub')}
+                {t(ranked ? 'rest_sub' : 'unscored_sub')}
               </T>
             </View>
           ) : null

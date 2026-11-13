@@ -4,7 +4,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import Feather from '@expo/vector-icons/Feather';
-import { useData } from '@/lib/data';
+import { useData, useStockDetail } from '@/lib/data';
 import { useApp } from '@/lib/store';
 import type { Factor, PillarResult, StockScore } from '@/lib/types';
 import { colors, pillarMeta, radius, space } from '@/lib/theme';
@@ -23,8 +23,9 @@ export default function StockScreen() {
   const t = useT();
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const { bySymbol, isDemo, report } = useData();
-  const s = bySymbol(symbol);
-  void report;
+  const inline = bySymbol(symbol);
+  const { detail, state } = useStockDetail(symbol, inline);
+  const s = inline ?? detail ?? undefined;
   const watching = useApp((st) => st.watchlist.includes(symbol));
   const toggleWatch = useApp((st) => st.toggleWatch);
   const { width } = useWindowDimensions();
@@ -46,8 +47,9 @@ export default function StockScreen() {
   );
 
   if (!s) {
-    // A stock outside today's top 50: price history only, clearly marked "no score"
+    // Analysis still loading, or a stock without enough history to score
     const q = report.quotes[symbol];
+    const loadingDetail = state === 'loading';
     return (
       <>
         <Stack.Screen options={{ title: symbol, headerRight: starButton(symbol) }} />
@@ -56,7 +58,7 @@ export default function StockScreen() {
             <Row style={{ gap: space(4) }}>
               <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
                 <T size={12} w="bold" color={colors.textDim} style={{ textAlign: 'center' }}>
-                  {t('no_score')}
+                  {loadingDetail ? '…' : t('no_score')}
                 </T>
               </View>
               <View style={{ flex: 1, gap: 2 }}>
@@ -79,7 +81,7 @@ export default function StockScreen() {
               </View>
             </Row>
             <T size={13} color={colors.textDim} style={{ marginTop: 8 }}>
-              {t('unscored_note')}
+              {loadingDetail ? t('detail_loading') : t('unscored_note')}
             </T>
           </Card>
           <PriceChart symbol={symbol} />
@@ -218,8 +220,8 @@ function FactorTable({ factors, color }: { factors: Factor[]; color: string }) {
             <T size={12} style={{ flex: 1 }}>{factorLabel(f, t.lang)}</T>
           </Row>
           <T size={12} color={colors.textDim} style={{ flex: 1.2 }}>{factorValue(f, t.lang)}</T>
-          <N size={12} w="bold" color={f.max && f.points / f.max >= 0.6 ? color : colors.textDim} style={{ width: 54 }}>
-            {f.max ? `${f.points}/${f.max}` : '—'}
+          <N size={12} w="bold" color={f.points < 0 ? colors.down : f.max && f.points / f.max >= 0.6 ? color : colors.textDim} style={{ width: 54 }}>
+            {f.points < 0 ? `${f.points}` : f.max ? `${f.points}/${f.max}` : '—'}
           </N>
         </Row>
       ))}

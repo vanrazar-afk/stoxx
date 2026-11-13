@@ -44,7 +44,7 @@ export function parseGoogleNewsRss(xml: string): NewsItem[] {
 }
 
 export async function fetchGoogleNews(name: string): Promise<NewsItem[]> {
-  const res = await fetch(googleNewsUrl(name), { headers: { 'User-Agent': 'Mozilla/5.0 (StoXX research engine)' } });
+  const res = await fetch(googleNewsUrl(name), { headers: { 'User-Agent': 'Mozilla/5.0 (VOLTIX research engine)' } });
   if (!res.ok) throw new Error(`google news ${res.status}`);
   return parseGoogleNewsRss(await res.text());
 }

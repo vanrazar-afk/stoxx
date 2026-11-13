@@ -1,11 +1,11 @@
-import type { DailyReport, StockInput, StockScore } from './types.js';
+import type { DailyReport, RankEntry, StockInput, StockScore } from './types.js';
 import { scoreTechnical } from './scoring/technical.js';
 import { scoreFundamental, type SectorContext } from './scoring/fundamental.js';
 import { scoreSentiment, type Classifier, lexiconClassifier } from './scoring/sentiment.js';
 import { computeLevels } from './scoring/levels.js';
 import { median, round, clamp, last } from './indicators.js';
 
-export const METHODOLOGY_VERSION = '1.0.0';
+export const METHODOLOGY_VERSION = '1.1.0'; // 1.1: earnings-proximity cut on the fundamental pillar; all S&P 500 ranked
 export const DISCLAIMER =
   'המידע באפליקציה מבוסס על מודל כמותי אוטומטי ומוצג לצרכי מידע ולימוד בלבד. אין בו ייעוץ השקעות, שיווק השקעות או המלצה לקנות או למכור נייר ערך כלשהו, והוא אינו מותאם לנתונים ולצרכים של אדם מסוים. מסחר בניירות ערך כרוך בסיכון, לרבות אובדן הקרן. ביצועי עבר אינם מעידים על ביצועים עתידיים.';
 
@@ -36,7 +36,7 @@ export async function scoreStock(
   classify: Classifier = lexiconClassifier,
 ): Promise<Omit<StockScore, 'rank' | 'prevRank' | 'prevScore'>> {
   const technical = scoreTechnical(s.candles);
-  const fundamental = scoreFundamental(s.fundamentals, sector, s.profile.sector);
+  const fundamental = scoreFundamental(s.fundamentals, sector, s.profile.sector, asOf);
   const sentiment = await scoreSentiment(s.profile.symbol, s.news, asOf, classify);
   const levels = computeLevels(s.candles);
   const closes = s.candles.map((c) => c.close);
@@ -76,6 +76,14 @@ export async function buildReport(
   inputs: StockInput[],
   opts: { asOf: Date; previous?: DailyReport | null; classify?: Classifier; topN?: number; onProgress?: (i: number, n: number) => void },
 ): Promise<DailyReport> {
+  return (await buildRanking(inputs, opts)).report;
+}
+
+/** Scores the whole universe. `all` holds the full analysis of every stock (for per-stock files). */
+export async function buildRanking(
+  inputs: StockInput[],
+  opts: { asOf: Date; previous?: DailyReport | null; classify?: Classifier; topN?: number; onProgress?: (i: number, n: number) => void },
+): Promise<{ report: DailyReport; all: StockScore[] }> {
   const topN = opts.topN ?? 50;
   const medians = sectorMedians(inputs);
   const scored: Omit<StockScore, 'rank' | 'prevRank' | 'prevScore'>[] = [];
@@ -93,26 +101,40 @@ export async function buildReport(
   // Tie-breakers: higher score, then better risk/reward, then technical.
   scored.sort((a, b) => b.score - a.score || b.levels.riskReward - a.levels.riskReward || b.technical.score - a.technical.score);
 
-  const prevMap = new Map(opts.previous?.top.map((t) => [t.symbol, t]) ?? []);
-  const top: StockScore[] = scored.slice(0, topN).map((s, idx) => ({
+  const prev = new Map<string, { rank: number; score: number }>();
+  for (const r of opts.previous?.ranks ?? []) prev.set(r.symbol, { rank: r.rank, score: r.score });
+  for (const t of opts.previous?.top ?? []) if (!prev.has(t.symbol)) prev.set(t.symbol, { rank: t.rank, score: t.score });
+
+  const all: StockScore[] = scored.map((s, idx) => ({
     ...s,
     rank: idx + 1,
-    prevRank: prevMap.get(s.symbol)?.rank ?? null,
-    prevScore: prevMap.get(s.symbol)?.score ?? null,
+    prevRank: prev.get(s.symbol)?.rank ?? null,
+    prevScore: prev.get(s.symbol)?.score ?? null,
+  }));
+  const ranks: RankEntry[] = all.map((s) => ({
+    symbol: s.symbol,
+    rank: s.rank,
+    score: s.score,
+    t: round(s.technical.score, 1),
+    f: round(s.fundamental.score, 1),
+    s: round(s.sentiment.score, 1),
+    prevRank: s.prevRank,
   }));
 
   const quotes: DailyReport['quotes'] = {};
   for (const s of scored) quotes[s.symbol] = { price: s.price, changePct: s.changePct, name: s.name, sector: s.sector };
 
   const lastDate = inputs.find((x) => x.candles.length)?.candles.at(-1)?.date ?? opts.asOf.toISOString().slice(0, 10);
-  return {
+  const report: DailyReport = {
     generatedAt: new Date().toISOString(),
     asOf: lastDate,
     methodologyVersion: METHODOLOGY_VERSION,
     universeSize: scored.length,
-    top,
+    top: all.slice(0, topN),
+    ranks,
     quotes,
     sectorMedians: medians,
     disclaimer: DISCLAIMER,
   };
+  return { report, all };
 }

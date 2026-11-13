@@ -69,6 +69,7 @@ export async function loadYahooStock(
   crumb: string | null,
   asOf: Date,
   onError: (msg: string) => void = () => {},
+  reuse?: { fundamentals: Fundamentals; news: NewsItem[] }, // quick runs: skip the slow fundamentals/news calls
 ): Promise<StockInput> {
   const p1 = Math.floor((asOf.getTime() - 420 * 864e5) / 1000);
   const p2 = Math.floor(asOf.getTime() / 1000) + 86400;
@@ -86,6 +87,7 @@ export async function loadYahooStock(
     pe: null, forwardPe: null, peg: null, revenueGrowthYoY: null, epsGrowthYoY: null, netMargin: null,
     roe: null, debtToEquity: null, fcfYield: null, marketCap: null, analystTarget: null, nextEarningsDate: null,
   };
+  if (reuse) return { profile: { symbol: u.symbol, name: u.name, sector: u.sector, industry: u.industry, exchange: '' }, candles, fundamentals: reuse.fundamentals, news: reuse.news };
   if (crumb) {
     try {
       const qs = await get(`/v10/finance/quoteSummary/${u.symbol}?modules=summaryDetail,defaultKeyStatistics,financialData,calendarEvents&crumb=${encodeURIComponent(crumb)}`);

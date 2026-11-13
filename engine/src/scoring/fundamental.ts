@@ -22,8 +22,28 @@ const pct = (x: number | null, d = 1) => (x === null ? 'אין נתון' : `${ro
  *  Debt / Equity                        10
  *  Free-cash-flow yield                 10
  *  ROE                                   5
+ *
+ * Earnings-proximity risk: an upcoming quarterly report adds event risk (gaps of ±10% are common),
+ * so the pillar is reduced in proportion to how close the report is — up to −50% of the earned
+ * points on report day, fading linearly to 0 at EARNINGS_WINDOW_DAYS days out.
  */
-export function scoreFundamental(f: Fundamentals, sector: SectorContext, sectorName: string): PillarResult {
+export const EARNINGS_WINDOW_DAYS = 30;
+export const EARNINGS_MAX_CUT = 0.5;
+
+/** Whole calendar days from asOf (US market date) to the report date; null if unknown or already past. */
+export function daysToEarnings(date: string | null, asOf: Date): number | null {
+  if (!date) return null;
+  const today = new Date(asOf.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) + 'T00:00:00Z').getTime();
+  const d = Math.round((new Date(`${date.slice(0, 10)}T00:00:00Z`).getTime() - today) / 864e5);
+  return d >= 0 ? d : null;
+}
+
+export function earningsCut(days: number | null): number {
+  if (days === null || days >= EARNINGS_WINDOW_DAYS) return 0;
+  return EARNINGS_MAX_CUT * (1 - days / EARNINGS_WINDOW_DAYS);
+}
+
+export function scoreFundamental(f: Fundamentals, sector: SectorContext, sectorName: string, asOf: Date = new Date()): PillarResult {
   const factors: Factor[] = [];
 
   // P/E relative
@@ -110,6 +130,15 @@ export function scoreFundamental(f: Fundamentals, sector: SectorContext, sectorN
     factors.push({ key: 'roe', label: 'תשואה על ההון (ROE)', value: pct(r), points: pts, max: 5, signal: sig(pts, 5) });
   }
 
+  // Earnings proximity (negative-only factor)
+  {
+    const days = daysToEarnings(f.nextEarningsDate, asOf);
+    const before = factors.reduce((a, x) => a + x.points, 0);
+    const cut = Math.round(before * earningsCut(days) * 10) / 10;
+    const when = days === null ? 'לא ידוע / רחוק' : days === 0 ? 'היום' : days === 1 ? 'מחר' : `בעוד ${days} ימים`;
+    factors.push({ key: 'earnings', label: 'קרבה לדוח רבעוני (סיכון)', value: when, points: -cut, max: 0, signal: cut >= 15 ? 'negative' : cut > 0 ? 'neutral' : 'positive' });
+  }
+
   const raw = factors.reduce((a, x) => a + x.points, 0);
   const score = round(clamp(raw, 0, 100) * (PILLAR_MAX / 100), 2);
   return { score, factors, summary: fundamentalSummary(factors, raw, sectorName) };
@@ -147,6 +176,8 @@ function fundamentalSummary(f: Factor[], raw: number, sectorEn: string): string 
   else if (g('rev').points === 0) s.push('ההכנסות מתכווצות.');
   if (g('de').points <= 3) s.push('רמת המינוף גבוהה יחסית.');
   if (g('fcf').points >= 7) s.push('החברה מייצרת תזרים מזומנים חופשי בריא.');
+  const ern = g('earnings');
+  if (ern && ern.points < 0) s.push(`הדוח הרבעוני צפוי ${ern.value} — הציון הופחת ב-${-ern.points} נק' בגלל סיכון האירוע.`);
   s.push(raw >= 65 ? 'פרופיל פונדמנטלי חזק.' : raw >= 40 ? 'פרופיל פונדמנטלי סביר.' : 'פרופיל פונדמנטלי חלש.');
   return s.join(' ');
 }

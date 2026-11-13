@@ -125,16 +125,16 @@ const D = {
   st_restart: ['השפה תתעדכן במלואה לאחר פתיחה מחדש של האפליקציה.', 'The layout direction updates fully after reopening the app.'],
   // onboarding
   ob_tagline: ['ניתוח מניות חכם — טכני, פונדמנטלי וסנטימנט, בציון אחד.', 'Smart stock analysis — technical, fundamental and sentiment in one score.'],
-  ob_p1_t: ['דירוג יומי של 50 מניות', 'A daily top-50 ranking'],
-  ob_p1_b: ['מודל כמותי מדרג את מניות S&P 500 לפי ציון 1–100, ומתעדכן לאורך יום המסחר.', 'A quantitative model scores every S&P 500 stock 1–100, refreshed through the trading day.'],
+  ob_p1_t: ['דירוג חי של כל 500 המניות', 'A live ranking of all 500 stocks'],
+  ob_p1_b: ['מודל כמותי מדרג את מניות S&P 500 לפי ציון 1–100, ומתעדכן כל 5 דקות בזמן המסחר.', 'A quantitative model scores every S&P 500 stock 1–100, refreshed every 5 minutes during trading.'],
   ob_p2_t: ['שלושה שלישים לציון', 'Three equal thirds'],
   ob_p2_b: ['ניתוח טכני, ניתוח פונדמנטלי מול הענף, וסנטימנט מאתרי החדשות הפיננסיים הגדולים.', 'Technical analysis, fundamentals vs. the sector, and sentiment from major financial news outlets.'],
   ob_p3_t: ['התיק שלך', 'Your portfolio'],
   ob_p3_b: ['עקבו אחרי העסקאות שלכם — הנתונים נשמרים במכשיר בלבד.', 'Track your trades — data stays on your device.'],
   ob_important: ['חשוב לדעת', 'Important'],
   ob_legal: [
-    'StoXX היא אפליקציית מידע ולימוד. הדירוגים, היעדים ורמות הסטופ מופקים אוטומטית ע"י מודל כמותי, אינם מותאמים לצרכים, למצב הכלכלי או להעדפות הסיכון שלך, ואינם מהווים ייעוץ השקעות, שיווק השקעות או המלצה לקנות או למכור נייר ערך. ייתכנו טעויות ועיכובים בנתונים. ביצועי עבר אינם מבטיחים תוצאות עתידיות, והשקעה בשוק ההון עלולה לגרום להפסד כספי. לפני קבלת החלטת השקעה מומלץ להתייעץ עם בעל רישיון.',
-    'StoXX is an information and education app. Scores, targets and stop levels are generated automatically by a quantitative model, are not tailored to your needs, financial situation or risk preferences, and are not investment advice, investment marketing or a recommendation to buy or sell any security. Data may contain errors or delays. Past performance does not guarantee future results and investing may lead to losses. Consider consulting a licensed adviser before investing.',
+    'VOLTIX היא אפליקציית מידע ולימוד. הדירוגים, היעדים ורמות הסטופ מופקים אוטומטית ע"י מודל כמותי, אינם מותאמים לצרכים, למצב הכלכלי או להעדפות הסיכון שלך, ואינם מהווים ייעוץ השקעות, שיווק השקעות או המלצה לקנות או למכור נייר ערך. ייתכנו טעויות ועיכובים בנתונים. ביצועי עבר אינם מבטיחים תוצאות עתידיות, והשקעה בשוק ההון עלולה לגרום להפסד כספי. לפני קבלת החלטת השקעה מומלץ להתייעץ עם בעל רישיון.',
+    'VOLTIX is an information and education app. Scores, targets and stop levels are generated automatically by a quantitative model, are not tailored to your needs, financial situation or risk preferences, and are not investment advice, investment marketing or a recommendation to buy or sell any security. Data may contain errors or delays. Past performance does not guarantee future results and investing may lead to losses. Consider consulting a licensed adviser before investing.',
   ],
   ob_check: ['קראתי והבנתי שהמידע באפליקציה אינו ייעוץ השקעות, ואני בן/בת 18 ומעלה.', 'I understand this app is not investment advice and I am 18 or older.'],
   ob_start: ['בואו נתחיל', 'Get started'],
@@ -144,7 +144,10 @@ const D = {
   no_score: ['ללא ציון', 'No score'],
   unscored_title: ['שאר מניות S&P 500', 'Rest of the S&P 500'],
   unscored_sub: ['מניות שלא נכנסו ל-50 המובילות — ללא ציון', 'Not in today’s top 50 — no score'],
-  unscored_note: ['המניה לא נכנסה היום ל-50 המובילות לפי המודל, ולכן אין לה ציון וניתוח מפורט.', 'This stock is not in today’s model top 50, so it has no score or detailed analysis.'],
+  rest_title: ['שאר מניות S&P 500', 'Rest of the S&P 500'],
+  rest_sub: ['כל המניות מדורגות — מקום 51 ומטה', 'Every stock is ranked — #51 and below'],
+  detail_loading: ['טוען ניתוח…', 'Loading analysis…'],
+  unscored_note: ['אין מספיק היסטוריית מחירים כדי לחשב ציון למניה הזו (נדרשת כשנה).', 'Not enough price history to score this stock (about a year is needed).'],
   // account
   ob_choose: ['איך תרצו להיכנס?', 'How would you like to continue?'],
   login_google: ['כניסה עם Google', 'Continue with Google'],
@@ -195,6 +198,7 @@ const SECTOR: Record<string, [string, string]> = {
 export const sectorName = (s: string, lang: Lang) => SECTOR[s]?.[lang === 'he' ? 0 : 1] ?? s;
 
 const FACTOR_LABEL_EN: Record<string, string> = {
+  earnings: 'Upcoming quarterly report (risk)',
   sma200: 'Price above 200-day MA',
   golden: '50-day MA above 200-day MA',
   sma100: 'Distance from 100-day MA',
@@ -217,6 +221,10 @@ const FACTOR_LABEL_EN: Record<string, string> = {
 };
 
 const VALUE_EN: [RegExp, string][] = [
+  [/^בעוד (\d+) ימים$/, 'in $1 days'],
+  [/^היום$/, 'today'],
+  [/^מחר$/, 'tomorrow'],
+  [/^לא ידוע \/ רחוק$/, 'unknown / far'],
   [/אין נתון/g, 'n/a'],
   [/^כן$/, 'Yes'],
   [/^לא$/, 'No'],
@@ -278,6 +286,8 @@ export function pillarSummary(kind: 'technical' | 'fundamental', p: PillarResult
     else if (fk(p, 'rev')?.points === 0) s.push('Revenue is shrinking.');
     if ((fk(p, 'de')?.points ?? 10) <= 3) s.push('Leverage is relatively high.');
     if ((fk(p, 'fcf')?.points ?? 0) >= 7) s.push('Healthy free cash flow.');
+    const ern = fk(p, 'earnings');
+    if (ern && ern.points < 0) s.push(`Quarterly report due ${factorValue(ern, 'en')} — score cut by ${-ern.points} pts for event risk.`);
     s.push(raw >= 65 ? 'Strong fundamental profile.' : raw >= 40 ? 'Reasonable fundamental profile.' : 'Weak fundamental profile.');
   }
   return s.join(' ');

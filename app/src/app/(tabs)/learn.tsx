@@ -37,6 +37,7 @@ const PILLARS = [
       L('יחס חוב להון (10)', 'Debt to equity (10)'),
       L('תשואת תזרים מזומנים חופשי (10)', 'Free-cash-flow yield (10)'),
       L('תשואה על ההון ROE (5)', 'Return on equity (5)'),
+      L('קרבה לדוח רבעוני: ככל שהדוח קרוב יותר — הציון יורד (עד −50% ביום הדוח, ומתאפס 30 יום לפני), כי דוח מוסיף סיכון לתנודה חדה', 'Upcoming quarterly report: the closer it is, the lower the score (up to −50% on report day, fading to 0 at 30 days out), because a report adds the risk of a sharp move'),
     ],
   },
   {
@@ -64,7 +65,7 @@ const GLOSSARY: [L, L][] = [
 
 const TEXT = {
   title: L('איך מחושב הציון', 'How the score works'),
-  intro: L('כל מניה מקבלת ציון 1–100 שמורכב משלושה שלישים שווים. הדירוג מתעדכן כל 20 דקות בזמן המסחר בוול סטריט ופעם נוספת אחרי הסגירה.', 'Every stock gets a 1–100 score made of three equal thirds. The ranking refreshes every 20 minutes while Wall Street is open and once more after the close.'),
+  intro: L('כל אחת מ-500 מניות S&P 500 מקבלת ציון 1–100 שמורכב משלושה שלישים שווים. בזמן המסחר בוול סטריט הדירוג מתעדכן כל 5 דקות (מחירים וניתוח טכני), וחדשות ונתונים פונדמנטליים מתעדכנים פעם בשעה. כשהבורסה סגורה — הכול מתעדכן פעם בשעה.', 'Each of the 500 S&P 500 stocks gets a 1–100 score made of three equal thirds. While Wall Street is open the ranking refreshes every 5 minutes (prices and technicals), with news and fundamentals refreshed hourly. When the market is closed, everything refreshes hourly.'),
   levelsT: L('יעד יציאה וסטופ', 'Exit target & stop'),
   levels: L('הסטופ ממוקם 2×ATR מתחת למחיר, או מתחת לממוצע 100 אם הוא קרוב יותר. היעד הוא ההתנגדות הקרובה (שיא 60 יום / 52 שבועות) אם היא נותנת לפחות פי 1.5 מהסיכון, אחרת יעד של פי 2 מהסיכון. אלו רמות טכניות לצורכי מחקר — לא תחזית מחיר.', 'The stop sits 2×ATR below the price, or just under the 100-day MA if that is closer. The target is the nearest resistance (60-day / 52-week high) if it offers at least 1.5× the risk, otherwise 2× the risk. These are technical research levels — not a price forecast.'),
   glossT: L('מילון מונחים', 'Glossary'),

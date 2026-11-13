@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import Feather from '@expo/vector-icons/Feather';
-import type { StockScore } from '@/lib/types';
+import type { RankEntry, StockScore } from '@/lib/types';
 import { colors, radius } from '@/lib/theme';
 import { useT, sectorName } from '@/lib/i18n';
 import { usd } from '@/lib/format';
@@ -95,6 +95,42 @@ export function UnscoredRow({ symbol, name, sector, price, changePct }: { symbol
       <View style={{ flex: 1, gap: 2 }}>
         <N w="bold" size={15}>
           {symbol}
+        </N>
+        <T size={12} color={colors.textDim} numberOfLines={1}>
+          {name}
+          {sector ? ` · ${sectorName(sector, t.lang)}` : ''}
+        </T>
+      </View>
+      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+        <N w="bold" size={14}>
+          {usd(price)}
+        </N>
+        <Delta value={changePct} size={11} />
+      </View>
+    </Pressable>
+  );
+}
+
+/** A ranked stock outside the top 50 (compact: score, rank, price). Opens the full analysis. */
+export function RankedRow({ r, name, sector, price, changePct }: { r: RankEntry; name: string; sector?: string; price: number; changePct: number }) {
+  const t = useT();
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/stock/[symbol]', params: { symbol: r.symbol } })}
+      style={({ pressed }) => [styles.row, { paddingVertical: 10 }, pressed && { backgroundColor: colors.cardHi }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, #${r.rank}, ${r.score}, ${usd(price)}`}
+    >
+      <View style={styles.rank}>
+        <N w="black" size={13} color={colors.textDim}>
+          {r.rank}
+        </N>
+        <RankMove rank={r.rank} prevRank={r.prevRank} />
+      </View>
+      <ScoreRing score={r.score} size={42} pillars={[r.t, r.f, r.s]} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <N w="bold" size={15}>
+          {r.symbol}
         </N>
         <T size={12} color={colors.textDim} numberOfLines={1}>
           {name}

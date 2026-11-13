@@ -123,12 +123,26 @@ export interface StockScore {
   nextEarningsDate: string | null;
 }
 
+/** Compact ranking row for every scored stock (the full analysis lives in data/stocks/<SYMBOL>.json). */
+export interface RankEntry {
+  symbol: string;
+  rank: number;
+  score: number;
+  t: number; // technical pillar
+  f: number; // fundamental pillar
+  s: number; // sentiment pillar
+  prevRank: number | null;
+}
+
 export interface DailyReport {
   generatedAt: string;
   asOf: string; // market date of the last candle
   methodologyVersion: string;
   universeSize: number;
-  top: StockScore[]; // top 50
+  top: StockScore[]; // top 50 (full detail)
+  ranks?: RankEntry[]; // ALL scored stocks, best first (S&P 500)
+  mode?: 'full' | 'quick'; // quick = prices/technicals refreshed, news & fundamentals from the last full run
+  fullAt?: string; // when news & fundamentals were last fetched
   quotes: Record<string, { price: number; changePct: number; name: string; sector?: string }>; // whole universe (S&P 500)
   sectorMedians: Record<string, { pe: number | null; netMargin: number | null; revenueGrowthYoY: number | null }>;
   disclaimer: string;
